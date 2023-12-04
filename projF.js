@@ -342,6 +342,7 @@ function prepareForNextMove(){
                 resultText.textContent = 'White won!';
             }
             overlay.classList.remove('hidden');
+            turn = -1;
         }
     }
     // if there is a bot make it move
@@ -810,34 +811,36 @@ function makeComputerMove(){
     // it will 'click' a square
     const clickEvent = new MouseEvent('click', {bubbles: true, cancelable: true, view: window});
     setTimeout(function() { // used because otherwise its too fast
-        let possiblePieces = [];
-        // find all the available pieces and their possible moves
-        for (let i = 0; i < 64; i++){
-            if (document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0] != null){
-                if (turn == 1 && document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0].id.slice(0,1) == "B"){
-                    document.getElementById(Math.floor(i/8)*10 + i % 8).dispatchEvent(clickEvent);
-                    if (allMoves.length > 0){
-                        possiblePieces.push(Math.floor(i/8)*10 + i % 8);
-                    }
-                } else if (turn == 0 && document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0].id.slice(0,1) == "W"){
-                    document.getElementById(Math.floor(i/8)*10 + i % 8).dispatchEvent(clickEvent);
-                    if (allMoves.length > 0){
-                        possiblePieces.push(Math.floor(i/8)*10 + i % 8);
+        if (turn != -1){
+            let possiblePieces = [];
+            // find all the available pieces and their possible moves
+            for (let i = 0; i < 64; i++){
+                if (document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0] != null){
+                    if (turn == 1 && document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0].id.slice(0,1) == "B"){
+                        document.getElementById(Math.floor(i/8)*10 + i % 8).dispatchEvent(clickEvent);
+                        if (allMoves.length > 0){
+                            possiblePieces.push(Math.floor(i/8)*10 + i % 8);
+                        }
+                    } else if (turn == 0 && document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0].id.slice(0,1) == "W"){
+                        document.getElementById(Math.floor(i/8)*10 + i % 8).dispatchEvent(clickEvent);
+                        if (allMoves.length > 0){
+                            possiblePieces.push(Math.floor(i/8)*10 + i % 8);
+                        }
                     }
                 }
             }
-        }
-        // pick a piece at random
-        let pieceChoice = Math.floor(Math.random()*possiblePieces.length);
-        selectedPiece = document.getElementById(possiblePieces[pieceChoice])
-        selectedPiece.dispatchEvent(clickEvent)
-        // pick a move at random
-        let moveChoice = Math.floor(Math.random()*allMoves.length);
-        const move = document.getElementById(allMoves[moveChoice]);
-        move.dispatchEvent(clickEvent);
-        // if there are two bots call itself and just keep the game going
-        if (bot > 1){
-            makeComputerMove();
+            // pick a piece at random
+            let pieceChoice = Math.floor(Math.random()*possiblePieces.length);
+            selectedPiece = document.getElementById(possiblePieces[pieceChoice])
+            selectedPiece.dispatchEvent(clickEvent)
+            // pick a move at random
+            let moveChoice = Math.floor(Math.random()*allMoves.length);
+            const move = document.getElementById(allMoves[moveChoice]);
+            move.dispatchEvent(clickEvent);
+            // if there are two bots call itself and just keep the game going
+            if (bot > 1){
+                makeComputerMove();
+            }
         }
       }, 10); // X number of millisecond wait time
   }
