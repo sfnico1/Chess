@@ -24,33 +24,44 @@ let bot = 0; // do we have bots
 
 // this is the initial board set up, some boards below are for testing certain positions
 // set it up this way so I can visually design a board and have it make it on the screen
-let customBoard = [ ['BR1','BN','BB','BQ','BK','BB','BN','BR2'],
-                    ['BP1','BP2','BP3','BP4','BP5','BP6','BP7','BP8'],
-                    ['','','','','','','',''],
-                    ['','','','','','','',''],
-                    ['','','','','','','',''],
-                    ['','','','','','','',''],
-                    ['WP1','WP2','WP3','WP4','WP5','WP6','WP7','WP8'],
-                    ['WR1','WN','WB','WQ','WK','WB','WN','WR2']]; 
+let customBoard = [
+    ['BR1','BN','BB','BQ','BK','BB','BN','BR2'],
+    ['BP1','BP2','BP3','BP4','BP5','BP6','BP7','BP8'],
+    ['','','','','','','',''],
+    ['','','','','','','',''],
+    ['','','','','','','',''],
+    ['','','','','','','',''],
+    ['WP1','WP2','WP3','WP4','WP5','WP6','WP7','WP8'],
+    ['WR1','WN','WB','WQ','WK','WB','WN','WR2']];
 
+/*
+['BR1','BN','BB','BQ','BK','BB','BN','BR2'],
+['BP1','BP2','BP3','BP4','BP5','BP6','BP7','BP8'],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['WP1','WP2','WP3','WP4','WP5','WP6','WP7','WP8'],
+['WR1','WN','WB','WQ','WK','WB','WN','WR2']]; 
 
-/*['BR1','BN','BB','BQ','','BB','BN','BR2'],
-                    ['WP1','WP2','WP3','WP4','WP5','WP6','WP7','WP8'],
-                    ['','','','','BK','','',''],
-                    ['','','','','','','',''],
-                    ['','','','','','','',''],
-                    ['','','','','WK','','',''],
-                    ['BP1','BP2','BP3','BP4','BP5','BP6','BP7','BP8'],
-                    ['WR1','WN','WB','WQ','','WB','WN','WR2']];*/
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','','']];
 
-/*[ ['','','','','','','',''],
-                    ['','','BP','','','','',''],
-                    ['','','','BP','','','',''],
-                    ['WK','WP','','','','','','BR'],
-                    ['','WR','','','','','BP','BK'],
-                    ['','','','','','','',''],
-                    ['','','','','','','',''],
-                    ['','','','','','','','']];*/
+['','','','','','','',''],
+['','','BP','','','','',''],
+['','','','BP','','','',''],
+['WK','WP','','','','','','BR'],
+['','WR','','','','','BP','BK'],
+['','','','','','','',''],
+['','','','','','','',''],
+['','','','','','','','']];
+*/
 
 // creating the board on the screen and phantomBoard
 for (let i = 7; i > -1; i--){
@@ -317,6 +328,8 @@ function handleSquareClick(event) {
 }
 
 function prepareForNextMove(){
+    let draw = true;
+    let stalemate = false;
     // change turn
     if (turn != -1){
         turn = (turn + 1) % 2;
@@ -328,18 +341,45 @@ function prepareForNextMove(){
     } else {
         checkKingSafety(blackKingLoc, "B", false);
     }
-    //check for checks
-    if (check == true){
+    // a check for draw (I only check if there are two kings left)
+    for (let i = 0; i < 64; i++){
+        if (phantomBoard[i] != '' && phantomBoard[i] != 'WK' && phantomBoard[i] != 'BK'){
+            draw = false;
+        }
+    }
+    // if draw is true, enter the endgame, I got lazy and just set check == true
+    if (draw == true){
+        check = true;
+    }
+    // check if there are no legal moves but we are not in check
+    if (check == false){
         let checkMate = findLegalMoves();
         if (checkMate == true){
+            stalemate = true;
+            check = true;
+        }
+    }
+    
+    //check for checks and update the screen
+    if (check == true){
+        let checkMate = findLegalMoves();
+        if (checkMate == true || draw == true || stalemate == true){
             const changeText = document.getElementById('turn');
-            changeText.textContent = 'Checkmate!';
             const overlay = document.getElementById('overlay');
             const resultText = document.getElementById('result-text');
-            if (turn == 0){
-                resultText.textContent = 'Black won!';
+            if (stalemate == true){
+                changeText.textContent = 'Draw!';
+                resultText.textContent = "It's a Stalemate!";
+            } else if (draw == true){
+                changeText.textContent = 'Draw!';
+                resultText.textContent = "It's a Draw!";
             } else {
-                resultText.textContent = 'White won!';
+                changeText.textContent = 'Checkmate!';
+                if (turn == 0){
+                    resultText.textContent = 'Black won!';
+                } else {
+                    resultText.textContent = 'White won!';
+                }
             }
             overlay.classList.remove('hidden');
             turn = -1;
@@ -784,7 +824,7 @@ function findLegalMoves(){
             }
         }
         // if yes moves, quit the loop
-        if (testMoves.length > 0){
+        if (testMoves.length >= 1){
             checkMate = false;
         }
         testMoves = [];
