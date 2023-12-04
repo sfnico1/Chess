@@ -2,12 +2,7 @@
 
 
 // setting variables
-// all ids, rooks need numbers for castling and pawns need numbers for en passant
-const pieceIds = ['WR1','WN','WB','WQ','WK','WB','WN','WR2','WP1','WP2','WP3','WP4','WP5','WP6','WP7','WP8',
-'BR1','BN','BB','BQ','BK','BB','BN','BR2','BP1','BP2','BP3','BP4','BP5','BP6','BP7','BP8']; 
 let phantomBoard = Array.from({length: 64}, () => '');
-//phantomBoard = [...['WR','WN','WB','WQ','WK','WB','WN','WR','WP','WP','WP','WP','WP','WP','WP','WP'], ...phantomBoard.slice(16)];
-//phantomBoard = [...phantomBoard.slice(0,48), ...['BP','BP','BP','BP','BP','BP','BP','BP','BR','BN','BB','BQ','BK','BB','BN','BR']];
 let turn = 0; // 0 for white's turn, 1 for black
 const turnTexts = ["White's Turn", "Black's Turn"]; // text box on screen
 const castlePiecesId = ['WK', 'WR1', 'WR2', 'BK', 'BR1', 'BR2']; // order in which to check piece ID if it moved
@@ -18,14 +13,17 @@ let allMoves = []; // keep track of legal moves
 let currentBGC = '#deb887'; // keep track of which background was most recently changed
 let possibleEP = false;
 let pawnEP = ""; // keep track of which pawn just moved 2 spaces
-let whiteKingLoc = 4;
+let whiteKingLoc = 4; // keep track of where the kings are
 let blackKingLoc = 74;
-let whiteKingSquareColor = "#986b41";
+let whiteKingSquareColor = "#986b41"; // keep track of their background color (they turn red when they check)
 let blackKingSquareColor = "#deb887";
-let check = false;
-let checkPhantomCheck = false;
-let bot = 0;
+let check = false; // keeping track if a king is in check
+let phantomCheck = false; // check if a king is in check during a phantom move (find if a move is legal or no (example is a pin))
+let bot = 0; // do we have bots
 
+
+// this is the initial board set up, some boards below are for testing certain positions
+// set it up this way so I can visually design a board and have it make it on the screen
 let customBoard = [ ['BR1','BN','BB','BQ','BK','BB','BN','BR2'],
                     ['BP1','BP2','BP3','BP4','BP5','BP6','BP7','BP8'],
                     ['','','','','','','',''],
@@ -33,7 +31,7 @@ let customBoard = [ ['BR1','BN','BB','BQ','BK','BB','BN','BR2'],
                     ['','','','','','','',''],
                     ['','','','','','','',''],
                     ['WP1','WP2','WP3','WP4','WP5','WP6','WP7','WP8'],
-                    ['WR1','WN','WB','WQ','WK','WB','WN','WR2']];
+                    ['WR1','WN','WB','WQ','WK','WB','WN','WR2']]; 
 
 
 /*['BR1','BN','BB','BQ','','BB','BN','BR2'],
@@ -53,7 +51,8 @@ let customBoard = [ ['BR1','BN','BB','BQ','BK','BB','BN','BR2'],
                     ['','','','','','','',''],
                     ['','','','','','','',''],
                     ['','','','','','','','']];*/
-turn = 0;
+
+// creating the board on the screen and phantomBoard
 for (let i = 7; i > -1; i--){
     for (let j = 0; j < 8; j++){
         if (customBoard[7-i][j] != ''){
@@ -133,6 +132,7 @@ function handleSquareClick(event) {
         // are we castling, promoting or en passenting?
         if (selectedSquare.childNodes[0].id.slice(1,2) == "P"){
             if (possibleEP == true){
+                // if we are en passenting we need to removed the enemy pawn (doesn't happen naturally)
                 if (Number(clickedSquare.id) == Number(selectedSquare.id) + 11 && document.getElementById(Number(selectedSquare.id)+1).childNodes[0] != null && 
                 document.getElementById(Number(selectedSquare.id)+1).childNodes[0].id == pawnEP){
                     document.getElementById(Number(selectedSquare.id)+1).innerHTML = '';
@@ -153,6 +153,7 @@ function handleSquareClick(event) {
                 possibleEP = false; 
                 pawnEP = "";
             }
+            // check if we are moving 2 squares as a pawn
             if ((selectedSquare.id < 18 && clickedSquare.id > 28) || (selectedSquare.id > 58 && clickedSquare.id < 48)){
                 possibleEP = true;
                 pawnEP = clickedSquare.childNodes[0].id;
@@ -168,24 +169,16 @@ function handleSquareClick(event) {
                 if (clickedSquare.id < 8){
                     promotedPieceImages = ['images/BQ.png','images/BR.png','images/BB.png','images/BN.png'];
                 }
-                // set up the choices by making 4 small squares with images
+                
+                // bots don't click the image, rather they randomly get a piece
                 if ((bot == 1 && turn == 1) || bot > 1){
                     let choice = promotedPieceImages[Math.floor(Math.random()*4)];
                     choice = choice.replace('images/', ''); 
                     choice = choice.replace('.png', '');
                     clickedSquare.innerHTML = `<img class = "piece" id = "${choice}" src = "images/${choice}.png">`
                     phantomBoard[Math.floor(Number(clickedSquare.id)/10)*8 + Number(clickedSquare.id) % 10] = choice;
-                    // resume the game when an image has been clicked
-                    turn = 1;
-                    if (clickedSquare.id > 69){
-                        turn = 0;
-                    }
-                    changeTurn();
-                    if (turn == 0){
-                        checkKingSafety(whiteKingLoc, "W", false);
-                    } else {
-                        checkKingSafety(blackKingLoc, "B", false);
-                    }
+
+                    // set up the choices by making 4 small squares with images
                 } else for (let i = 0; i < 4; i++){
                     const subSquare = document.createElement('div');
                     subSquare.className = 'subSquare';
@@ -213,7 +206,7 @@ function handleSquareClick(event) {
                     image.src = promotedPieceImages[i];
                     image.className = 'smallPiece';
                     subSquare.appendChild(image);
-                    turn = -1; // stop the gam
+                    turn = -1; // stop the game, wait for the user to click an image
                     image.addEventListener('click', function(){
                         image.alt = promotedPieceImages[i].replace('images/', ''); 
                         image.alt = image.alt.replace('.png', '');
@@ -224,81 +217,50 @@ function handleSquareClick(event) {
                         if (clickedSquare.id > 69){
                             turn = 0;
                         }
-                        changeTurn();
-                        if (turn == 0){
-                            checkKingSafety(whiteKingLoc, "W", false);
-                        } else {
-                            checkKingSafety(blackKingLoc, "B", false);
-                        }
+                        prepareForNextMove()
                     });
                 }
             }
         }
+        // if we are moving a king
         if (selectedSquare.childNodes[0].id.slice(1,2) == "K"){
+            // update position
             if (turn == 0){
                 whiteKingLoc = Number(clickedSquare.id);
             } else {
                 blackKingLoc = Number(clickedSquare.id);
             }
+            // are we castling
             if (castling[0] == true && selectedSquare.childNodes[0].id == "WK" && Number(clickedSquare.id) == 6){
                 // move the rook
                 document.getElementById(7).innerHTML = '';
                 document.getElementById(5).innerHTML = `<img class = "piece" id = "WR2" src = "images/WR.png">`;
                 phantomBoard[7] = '';
                 phantomBoard[5] = 'WR';
-                castling[0] = false;
             } else if (castling[1] == true && selectedSquare.childNodes[0].id == "WK" && Number(clickedSquare.id) == 2){
                 document.getElementById(0).innerHTML = '';
                 document.getElementById(3).innerHTML = `<img class = "piece" id = "WR1" src = "images/WR.png">`;
                 phantomBoard[0] = '';
                 phantomBoard[3] = 'WR';
-                castling[1] = false;
             } else if (castling[2] == true && selectedSquare.childNodes[0].id == "BK" && Number(clickedSquare.id) == 76){
                 document.getElementById(77).innerHTML = '';
                 document.getElementById(75).innerHTML = `<img class = "piece" id = "BR2" src = "images/BR.png">`;
                 phantomBoard[63] = '';
                 phantomBoard[61] = 'BR';
-                castling[2] = false;
             } else if (castling[3] == true && selectedSquare.childNodes[0].id == "BK" && Number(clickedSquare.id) == 72){
                 document.getElementById(70).innerHTML = '';
                 document.getElementById(73).innerHTML = `<img class = "piece" id = "BR1" src = "images/BR.png">`;
                 phantomBoard[56] = '';
-                phantomBoard[59] = 'BR';
-                castling[3] = false;
+                phantomBoard[59] = 'BR'
             }
         }
         // clear the old square and moves
         allMoves = [];
         selectedSquare.innerHTML = '';
         selectedSquare = null;
-        changeTurn();
-        if (turn == 0){
-            checkKingSafety(whiteKingLoc, "W", false);
-        } else {
-            checkKingSafety(blackKingLoc, "B", false);
-        }
         
-        if (check == true){
-            let checkMate = findLegalMoves();
-            if (checkMate == true){
-                const changeText = document.getElementById('turn');
-                changeText.textContent = 'Checkmate!';
-                const overlay = document.getElementById('overlay');
-                const resultText = document.getElementById('result-text');
-                if (turn == 0){
-                    resultText.textContent = 'Black won!';
-                } else {
-                    resultText.textContent = 'White won!';
-                }
-                overlay.classList.remove('hidden');
-            }
-        }
+        prepareForNextMove();
 
-        if (bot == 1 && turn == 1){
-            makeComputerMove();
-        }
-
-        
         // deselecting a piece
     } else if (selectedSquare && !allMoves.includes(Number(clickedSquare.id))){
         allMoves = [];
@@ -354,12 +316,37 @@ function handleSquareClick(event) {
     }
 }
 
-// change who's turn it is
-function changeTurn(){
+function prepareForNextMove(){
+    // change turn
     if (turn != -1){
         turn = (turn + 1) % 2;
         const changeText = document.getElementById('turn');
         changeText.textContent = turnTexts[turn];
+    }
+    if (turn == 0){
+        checkKingSafety(whiteKingLoc, "W", false);
+    } else {
+        checkKingSafety(blackKingLoc, "B", false);
+    }
+    //check for checks
+    if (check == true){
+        let checkMate = findLegalMoves();
+        if (checkMate == true){
+            const changeText = document.getElementById('turn');
+            changeText.textContent = 'Checkmate!';
+            const overlay = document.getElementById('overlay');
+            const resultText = document.getElementById('result-text');
+            if (turn == 0){
+                resultText.textContent = 'Black won!';
+            } else {
+                resultText.textContent = 'White won!';
+            }
+            overlay.classList.remove('hidden');
+        }
+    }
+    // if there is a bot make it move
+    if (bot == 1 && turn == 1){
+        makeComputerMove();
     }
 }
 
@@ -386,22 +373,24 @@ const getLongMoves = (position, directions, color, piece, phantom) => {
                 if (stop[j] == false){
                     // check if the square is empty
                     if (checkSquare == ''){
-                        checkPhantomCheck = false;
+                        phantomCheck = false;
+                        // check if this move checks your own king
                         if (phantom == true){
                             checkYourself(position, indices[j], color, piece);
                         }
-                        if (checkPhantomCheck == false){
+                        // if so, don't add this as a legal move
+                        if (phantomCheck == false){
                             allPositions.push(indices[j]);
                         }
                     } else {
                         stop[j] = true;
                         // what color piece did we hit
                         if (checkSquare.slice(0,1) != color){
-                            checkPhantomCheck = false;
+                            phantomCheck = false;
                             if (phantom == true){
                                 checkYourself(position, indices[j], color, piece);
                             }
-                            if (checkPhantomCheck == false){
+                            if (phantomCheck == false){
                                 allPositions.push(indices[j]);
                             }
                         }
@@ -426,21 +415,21 @@ const getSingleMoves = (position, directions, color, piece, phantom) => {
             checkSquare = phantomBoard[Math.floor(Number(indices[i])/10)*8 + Number(indices[i]) % 10];
             // empty square
             if (checkSquare === ''){
-                checkPhantomCheck = false;
+                phantomCheck = false;
                 if (phantom == true){
                     checkYourself(position, indices[i], color, piece);
                 }
-                if (checkPhantomCheck == false){
+                if (phantomCheck == false){
                     allPositions.push(indices[i]);
                 }
             } else {
                 // what color piece did we hit
                 if (checkSquare.slice(0,1) != color){
-                    checkPhantomCheck = false;
+                    phantomCheck = false;
                     if (phantom == true){
                         checkYourself(position, indices[i], color, piece);
                     }
-                    if (checkPhantomCheck == false){
+                    if (phantomCheck == false){
                         allPositions.push(indices[i]);
                     }
                 }
@@ -463,22 +452,22 @@ const getPawnMoves = (position, pawnID, phantom) => {
     if ((pos + 10 < 79 && pawnID.slice(0,1) == "W") || (pawnID.slice(0,1) == "B" && pos - 10 > -1)){
         checkSquare = document.getElementById(pos + 10*multiplier);
         if (checkSquare.innerHTML === ''){
-            checkPhantomCheck = false;
+            phantomCheck = false;
                     if (phantom == true){
                         checkYourself(position, pos + 10*multiplier, pawnID.slice(0,1), pawnID.slice(1,3));
                     }
-                    if (checkPhantomCheck == false){
+                    if (phantomCheck == false){
                         allPositions.push(pos + 10*multiplier);
                     }
             // if we haven't moved, let's maybe move 2
             if ((pos + 20 < 39 && pawnID.slice(0,1) == "W") || (pawnID.slice(0,1) == "B" && pos - 20 > 39)){
                 checkSquare = document.getElementById(pos + 20*multiplier);
                 if (checkSquare.innerHTML === ''){
-                    checkPhantomCheck = false;
+                    phantomCheck = false;
                     if (phantom == true){
                         checkYourself(position, pos + 20*multiplier, pawnID.slice(0,1), pawnID.slice(1,3));
                     }
-                    if (checkPhantomCheck == false){
+                    if (phantomCheck == false){
                         allPositions.push(pos + 20*multiplier);
                     }
                 }
@@ -494,11 +483,11 @@ const getPawnMoves = (position, pawnID, phantom) => {
             checkSquare = document.getElementById(pos + leftRight[i]*multiplier);
             if (checkSquare.innerHTML !== '' && ((checkSquare.childNodes[0].id.slice(0,1) == 'B' && pawnID.slice(0,1) == "W") || 
             (checkSquare.childNodes[0].id.slice(0,1) == 'W' && pawnID.slice(0,1) == "B"))){
-                checkPhantomCheck = false;
+                phantomCheck = false;
                 if (phantom == true){
                     checkYourself(position, pos + leftRight[i]*multiplier, pawnID.slice(0,1), pawnID.slice(1,3));
                 }
-                if (checkPhantomCheck == false){
+                if (phantomCheck == false){
                     allPositions.push(pos + leftRight[i]*multiplier);
                 }
             }
@@ -510,26 +499,26 @@ const getPawnMoves = (position, pawnID, phantom) => {
             // check right
             if ((pos + 1) % 10 != 8){
                 if (document.getElementById(pos + 1).childNodes[0] != null && document.getElementById(pos + 1).childNodes[0].id == pawnEP){
-                    checkPhantomCheck = false;
+                    phantomCheck = false;
                     if (phantom == true){
                         phantomBoard[Math.floor((pos + 1)/10)*8 + (pos + 1) % 10] = '';
                         checkYourself(position, pos + 11, pawnID.slice(0,1), pawnID.slice(1,3));
                         phantomBoard[Math.floor((pos + 1)/10)*8 + (pos + 1) % 10] = pawnEP;
                     }
-                    if (checkPhantomCheck == false){
+                    if (phantomCheck == false){
                         allPositions.push(pos + 11);
                     }
                 }
             } // check left
             if ((pos - 1) % 10 != 9){
                 if (document.getElementById(pos - 1).childNodes[0] != null && document.getElementById(pos - 1).childNodes[0].id == pawnEP){
-                    checkPhantomCheck = false;
+                    phantomCheck = false;
                     if (phantom == true){
                         phantomBoard[Math.floor((pos - 1)/10)*8 + (pos - 1) % 10] = '';
                         checkYourself(position, pos + 9, pawnID.slice(0,1), pawnID.slice(1,3));
                         phantomBoard[Math.floor((pos - 1)/10)*8 + (pos - 1) % 10] = pawnEP;
                     }
-                    if (checkPhantomCheck == false){
+                    if (phantomCheck == false){
                         allPositions.push(pos + 9);
                     }
                 }
@@ -537,26 +526,26 @@ const getPawnMoves = (position, pawnID, phantom) => {
         } else { // now black
             if ((pos + 1) % 10 != 8){
                 if (document.getElementById(pos + 1).childNodes[0] != null && document.getElementById(pos + 1).childNodes[0].id == pawnEP){
-                    checkPhantomCheck = false;
+                    phantomCheck = false;
                     if (phantom == true){
                         phantomBoard[Math.floor((pos - 1)/10)*8 + (pos - 1) % 10] = '';
                         checkYourself(position, pos - 9, pawnID.slice(0,1), pawnID.slice(1,3));
                         phantomBoard[Math.floor((pos - 1)/10)*8 + (pos - 1) % 10] = pawnEP;
                     }
-                    if (checkPhantomCheck == false){
+                    if (phantomCheck == false){
                         allPositions.push(pos - 9);
                     }
                 }
             } 
             if ((pos - 1) % 10 != 9){
                 if (document.getElementById(pos - 1).childNodes[0] != null && document.getElementById(pos - 1).childNodes[0].id == pawnEP){
-                    checkPhantomCheck = false;
+                    phantomCheck = false;
                     if (phantom == true){
                         phantomBoard[Math.floor((pos + 1)/10)*8 + (pos + 1) % 10] = '';
                         checkYourself(position, pos - 11, pawnID.slice(0,1), pawnID.slice(1,3));
                         phantomBoard[Math.floor((pos + 1)/10)*8 + (pos + 1) % 10] = pawnEP;
                     }
-                    if (checkPhantomCheck == false){
+                    if (phantomCheck == false){
                         allPositions.push(pos - 11);
                     }
                 }
@@ -573,14 +562,14 @@ const checkCastle = (allMoves, position, color, phantom) => {
         // check if the right rook or king has moved and if the squares in between are open
         if (castlePieces[0] == false && castlePieces[2] == false && document.getElementById(5).innerHTML === '' && 
         document.getElementById(6).innerHTML === '' && document.getElementById(7).childNodes[0] != null && document.getElementById(7).childNodes[0].id == "WR2"){
-            checkPhantomCheck = false;
+            phantomCheck = false;
             if (phantom == true){
                 checkYourself(position, 6, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 checkYourself(position, 5, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 allMoves.push(6);
             }
             castling[0] = true
@@ -588,14 +577,14 @@ const checkCastle = (allMoves, position, color, phantom) => {
         // left side
         if (castlePieces[0] == false && castlePieces[1] == false && document.getElementById(1).innerHTML === '' && 
         document.getElementById(2).innerHTML === '' && document.getElementById(3).innerHTML === '' && document.getElementById(0).childNodes[0] != null && document.getElementById(0).childNodes[0].id == "WR1"){
-            checkPhantomCheck = false;
+            phantomCheck = false;
             if (phantom == true){
                 checkYourself(position, 2, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 checkYourself(position, 3, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 allMoves.push(2);
             }
             castling[1] = true
@@ -603,28 +592,28 @@ const checkCastle = (allMoves, position, color, phantom) => {
     } else { // black king
         if (castlePieces[3] == false && castlePieces[5] == false && document.getElementById(75).innerHTML === '' && 
         document.getElementById(76).innerHTML === '' && document.getElementById(77).childNodes[0] != null && document.getElementById(77).childNodes[0].id == "BR2"){
-            checkPhantomCheck = false;
+            phantomCheck = false;
             if (phantom == true){
                 checkYourself(position, 76, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 checkYourself(position, 75, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 allMoves.push(76);
             }
             castling[2] = true
         }
         if (castlePieces[3] == false && castlePieces[4] == false && document.getElementById(71).innerHTML === '' && 
         document.getElementById(72).innerHTML === '' && document.getElementById(73).innerHTML === '' && document.getElementById(70).childNodes[0] != null && document.getElementById(70).childNodes[0].id == "BR1"){
-            checkPhantomCheck = false;
+            phantomCheck = false;
             if (phantom == true){
                 checkYourself(position, 72, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 checkYourself(position, 73, color, "K");
             }
-            if (checkPhantomCheck == false){
+            if (phantomCheck == false){
                 allMoves.push(72);
             }
             castling[3] = true
@@ -635,103 +624,97 @@ const checkCastle = (allMoves, position, color, phantom) => {
 
 // check if the enemy moved a piece and now your king is in check
 const checkKingSafety = (position, color, phantom) => {
+    
     let index = 0;
     // get king vision (i.e. every location that can possibly attack the king)
     let visionLongDiag = getLongMoves(position, [9, 11, -9, -11], color, "B", false);
     let visionLongStraight = getLongMoves(position, [10, 1, -10, -1], color, "R", false)
     let visionSingleKnight = getSingleMoves(position, [19, 21, 12, 8, -19, -21, -12, -8], color, "N", false);
     let visionSingleKing = getSingleMoves(position, [9, 10, 11, 1, -11, -10, -9, -1], color, "K", false);
-    
     // for every location, check to see if an enemy piece can see the king
-    // queens, bishops, pawns
-    while (index < visionLongDiag.length){
-        let currentString = phantomBoard[Math.floor(Number(visionLongDiag[index])/10)*8 + Number(visionLongDiag[index]) % 10];
-        if (currentString != ''){
-            if (currentString.slice(0,1) != color){
-                if (currentString.slice(1,2) == "B" || currentString.slice(1,2) == "Q"){
-                    checkPhantomCheck = true;
-                    if (phantom == false){
-                        changeKingBackground(position, color);
-                    }
-                } else if (currentString.slice(1,2) == "P"){
-                    if (color == "W"){
-                        if (visionLongDiag[index] == position + 9){
-                            checkPhantomCheck = true;
-                            if (phantom == false){
-                                changeKingBackground(position, color);
+    while (index < visionLongDiag.length || index < visionLongStraight.length || index < visionSingleKnight.length || index < visionSingleKing.length){
+        // queens, bishops and pawns
+        if (index < visionLongDiag.length){
+            let currentString = phantomBoard[Math.floor(Number(visionLongDiag[index])/10)*8 + Number(visionLongDiag[index]) % 10];
+            if (currentString != ''){
+                if (currentString.slice(0,1) != color){
+                    // make sure that the king is safe by checking what the king can see
+                    if (currentString.slice(1,2) == "B" || currentString.slice(1,2) == "Q"){
+                        phantomCheck = true;
+                        if (phantom == false){
+                            changeKingBackground(position, color);
+                        }
+                    } else if (currentString.slice(1,2) == "P"){
+                        if (color == "W"){
+                            if (visionLongDiag[index] == position + 9){
+                                phantomCheck = true;
+                                if (phantom == false){
+                                    changeKingBackground(position, color);
+                                }
+                            } else if (visionLongDiag[index] == position + 11){
+                                phantomCheck = true;
+                                if (phantom == false){
+                                    changeKingBackground(position, color);
+                                }
                             }
-                        } else if (visionLongDiag[index] == position + 11){
-                            checkPhantomCheck = true;
-                            if (phantom == false){
-                                changeKingBackground(position, color);
+                        } else {
+                            if (visionLongDiag[index] == position - 9){
+                                phantomCheck = true;
+                                if (phantom == false){
+                                    changeKingBackground(position, color);
+                                }
+                            } else if (visionLongDiag[index] == position - 11){
+                                phantomCheck = true;
+                                if (phantom == false){
+                                    changeKingBackground(position, color);
+                                }
                             }
                         }
-                    } else {
-                        if (visionLongDiag[index] == position - 9){
-                            checkPhantomCheck = true;
-                            if (phantom == false){
-                                changeKingBackground(position, color);
-                            }
-                        } else if (visionLongDiag[index] == position - 11){
-                            checkPhantomCheck = true;
-                            if (phantom == false){
-                                changeKingBackground(position, color);
-                            }
+                    }
+                } 
+            }
+        }
+        // queens and rooks
+        if (index < visionLongStraight.length){
+            let currentString = phantomBoard[Math.floor(Number(visionLongStraight[index])/10)*8 + Number(visionLongStraight[index]) % 10];
+            if (currentString != ''){
+                if (currentString.slice(0,1) != color){
+                    if (currentString.slice(1,2) == "R" || currentString.slice(1,2) == "Q"){
+                        phantomCheck = true;
+                        if (phantom == false){
+                            changeKingBackground(position, color);
                         }
-                    }
-                }
-            } 
-        }
-        index++;
-    }
-
-    // rooks and queens
-    index = 0;
-    while (index < visionLongStraight.length){
-        let currentString = phantomBoard[Math.floor(Number(visionLongStraight[index])/10)*8 + Number(visionLongStraight[index]) % 10];
-        if (currentString != ''){
-            if (currentString.slice(0,1) != color){
-                if (currentString.slice(1,2) == "R" || currentString.slice(1,2) == "Q"){
-                    checkPhantomCheck = true;
-                    if (phantom == false){
-                        changeKingBackground(position, color);
-                    }
+                    } 
                 } 
-            } 
+            }
         }
-        index++;
-    }
-
-    // knights
-    index = 0;
-    while (index < visionSingleKnight.length){
-        let currentString = phantomBoard[Math.floor(Number(visionSingleKnight[index])/10)*8 + Number(visionSingleKnight[index]) % 10];
-        if (currentString != ''){
-            if (currentString.slice(0,1) != color){
-                if (currentString.slice(1,2) == "N"){
-                    checkPhantomCheck = true;
-                    if (phantom == false){
-                        changeKingBackground(position, color);
-                    }
+        // knights
+        if (index < visionSingleKnight.length){
+            let currentString = phantomBoard[Math.floor(Number(visionSingleKnight[index])/10)*8 + Number(visionSingleKnight[index]) % 10];
+            if (currentString != ''){
+                if (currentString.slice(0,1) != color){
+                    if (currentString.slice(1,2) == "N"){
+                        phantomCheck = true;
+                        if (phantom == false){
+                            changeKingBackground(position, color);
+                        }
+                    } 
                 } 
-            } 
+            }
         }
-        index++;
-    }
-
-    // kings
-    index = 0;
-    while (index < visionSingleKing.length){
-        let currentString = phantomBoard[Math.floor(Number(visionSingleKing[index])/10)*8 + Number(visionSingleKing[index]) % 10];
-        if (currentString != ''){
-            if (currentString.slice(0,1) != color){
-                if (currentString.slice(1,2) == "K"){
-                    checkPhantomCheck = true;
-                    if (phantom == false){
-                        changeKingBackground(position, color);
-                    }
+        // kings
+        if (index < visionSingleKing.length){
+            let currentString = phantomBoard[Math.floor(Number(visionSingleKing[index])/10)*8 + Number(visionSingleKing[index]) % 10];
+            if (currentString != ''){
+                if (currentString.slice(0,1) != color){
+                    if (currentString.slice(1,2) == "K"){
+                        phantomCheck = true;
+                        if (phantom == false){
+                            changeKingBackground(position, color);
+                        }
+                    } 
                 } 
-            } 
+            }
         }
         index++;
     }
@@ -748,6 +731,7 @@ function changeKingBackground(position, color){
     document.getElementById(position).style.backgroundColor = 'red';
 }
 
+// this function is used to see if a move results in checking yourself - play out the move on the phantom board and check if you are in check
 function checkYourself(phantomLocOld, phantomLocNew, color, piece){
     let killedPiece = phantomBoard[Math.floor(Number(phantomLocNew)/10)*8 + Number(phantomLocNew) % 10];
     phantomBoard[Math.floor(Number(phantomLocNew)/10)*8 + Number(phantomLocNew) % 10] = color + piece;
@@ -763,15 +747,19 @@ function checkYourself(phantomLocOld, phantomLocNew, color, piece){
     phantomBoard[Math.floor(Number(phantomLocOld)/10)*8 + Number(phantomLocOld) % 10] = color + piece;
 }
 
+// if the king is in check, check to see if we are in checkmate. This is a loop that loops over every piece in the position. 
+// if one piece has a legal move, it's not checkmate
 function findLegalMoves(){
     let testMoves = [];
     let checkMate = true;
     let color = "W";
     let index = 0;
+    // check every square
     while (checkMate == true && index < 64){
         if (turn == 1){
             color = "B";
         }
+        // find legal moves for that piece
         if (phantomBoard[index] != '' && phantomBoard[index].slice(0,1) == color){
             switch (phantomBoard[index].slice(1,2)){
                 case "P":
@@ -794,6 +782,7 @@ function findLegalMoves(){
                     break;
             }
         }
+        // if yes moves, quit the loop
         if (testMoves.length > 0){
             checkMate = false;
         }
@@ -803,21 +792,26 @@ function findLegalMoves(){
     return checkMate;
 }
 
+// everytime the button is clicked increment a counter
 function addBot(){
     bot++;
     if (bot < 2){
         document.getElementById('bot').textContent = 'Add a Bot: ' + bot;
     } else {
-        document.getElementById('bot').textContent = 'Add a Bot: ' + 2;
+        if (bot == 2){
+            document.getElementById('bot').textContent = 'Add a Bot: ' + 2;
+        }
         makeComputerMove();
-        
     }
 }
 
+// this is where the computer makes a move (makes a random move)
 function makeComputerMove(){
+    // it will 'click' a square
     const clickEvent = new MouseEvent('click', {bubbles: true, cancelable: true, view: window});
-    setTimeout(function() {
+    setTimeout(function() { // used because otherwise its too fast
         let possiblePieces = [];
+        // find all the available pieces and their possible moves
         for (let i = 0; i < 64; i++){
             if (document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0] != null){
                 if (turn == 1 && document.getElementById(Math.floor(i/8)*10 + i % 8).childNodes[0].id.slice(0,1) == "B"){
@@ -833,14 +827,17 @@ function makeComputerMove(){
                 }
             }
         }
+        // pick a piece at random
         let pieceChoice = Math.floor(Math.random()*possiblePieces.length);
         selectedPiece = document.getElementById(possiblePieces[pieceChoice])
         selectedPiece.dispatchEvent(clickEvent)
+        // pick a move at random
         let moveChoice = Math.floor(Math.random()*allMoves.length);
         const move = document.getElementById(allMoves[moveChoice]);
         move.dispatchEvent(clickEvent);
+        // if there are two bots call itself and just keep the game going
         if (bot > 1){
             makeComputerMove();
         }
-      }, 10);
+      }, 10); // X number of millisecond wait time
   }
